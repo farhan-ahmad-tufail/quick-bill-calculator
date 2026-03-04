@@ -1,22 +1,67 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Calculator, RefreshCw, Printer, AlertTriangle, Zap, Home, User, Layers, ArrowRight, Calendar, Download, History, Save, Share2, Trash2, X } from 'lucide-react';
 import html2canvas from 'html2canvas';
+import { jsPDF } from 'jspdf';
+
+const translations = {
+    en: {
+        receiptTitle: "RENT RECEIPT",
+        tenant: "TENANT",
+        rooms: "ROOMS",
+        total: "Total",
+        rent: "Rent",
+        readings: "READINGS",
+        units: "UNITS",
+        rate: "RATE",
+        elec: "ELEC",
+        cur: "Cur",
+        pre: "Pre",
+        totalRent: "Total Rent",
+        totalElectricity: "Total Electricity",
+        otherCharges: "Other Charges",
+        currentMonth: "CURRENT MONTH",
+        oldPendingBalance: "Old Pending Balance",
+        totalPayable: "TOTAL PAYABLE AMOUNT",
+        payByDueDate: "Please pay by due date",
+        thankYou: "Thank you for your timely payment.",
+        generatedOn: "Generated electronically on"
+    },
+    hi: {
+        receiptTitle: "किराया रसीद",
+        tenant: "किरायेदार",
+        rooms: "कमरे",
+        total: "कुल",
+        rent: "किराया",
+        readings: "रीडिंग",
+        units: "यूनिट",
+        rate: "दर",
+        elec: "बिजली",
+        cur: "वर्तमान",
+        pre: "पिछला",
+        totalRent: "कुल किराया",
+        totalElectricity: "कुल बिजली बिल",
+        otherCharges: "अन्य शुल्क",
+        currentMonth: "इस महीने का कुल",
+        oldPendingBalance: "पिछला बकाया",
+        totalPayable: "कुल देय राशि",
+        payByDueDate: "कृपया नियत तिथि तक भुगतान करें",
+        thankYou: "समय पर भुगतान के लिए धन्यवाद।",
+        generatedOn: "इलेक्ट्रॉनिक रूप से तैयार:"
+    }
+};
 
 export default function QuickCalc() {
     const currentDate = new Date();
     const [formData, setFormData] = useState({
         name: '',
-        floor: '',
-        roomType: 'Medium',
         billMonth: currentDate.toLocaleString('default', { month: 'long' }),
         billYear: currentDate.getFullYear(),
-        rent: '',
-        prevReading: '',
-        currReading: '',
-        ratePerUnit: 17,
         arrears: '',
         otherCharges: ''
     });
+
+    const defaultRoom = { floor: '', roomType: 'Medium', rent: '', prevReading: '', currReading: '', ratePerUnit: 17 };
+    const [rooms, setRooms] = useState([{ ...defaultRoom, id: Date.now() }]);
 
     const [result, setResult] = useState(null);
     const [error, setError] = useState('');
@@ -27,6 +72,7 @@ export default function QuickCalc() {
     const [history, setHistory] = useState([]);
     const [profiles, setProfiles] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
+    const [language, setLanguage] = useState('en');
 
     useEffect(() => {
         setAnimate(true);
@@ -49,26 +95,48 @@ export default function QuickCalc() {
         e.preventDefault();
         setError('');
 
-        const rent = parseFloat(formData.rent) || 0;
-        const prev = parseFloat(formData.prevReading) || 0;
-        const curr = parseFloat(formData.currReading) || 0;
-        const rate = parseFloat(formData.ratePerUnit) || 0;
         const arrears = parseFloat(formData.arrears) || 0;
         const other = parseFloat(formData.otherCharges) || 0;
 
-        if (curr < prev) {
-            setError('Current reading cannot be less than previous reading.');
-            return;
+        let totalRent = 0;
+        let totalElec = 0;
+        let totalUnits = 0;
+        let calculatedRooms = [];
+
+        for (let i = 0; i < rooms.length; i++) {
+            const r = rooms[i];
+            const rRent = parseFloat(r.rent) || 0;
+            const prev = parseFloat(r.prevReading) || 0;
+            const curr = parseFloat(r.currReading) || 0;
+            const rate = parseFloat(r.ratePerUnit) || 0;
+
+            if (curr < prev && r.currReading !== '') {
+                setError(`Current reading cannot be less than previous reading in Room ${i + 1}.`);
+                return;
+            }
+
+            const units = curr - prev;
+            const elecAmount = units * rate;
+
+            totalRent += rRent;
+            totalElec += elecAmount;
+            totalUnits += units;
+
+            calculatedRooms.push({
+                ...r,
+                units,
+                elecAmount
+            });
         }
 
-        const units = curr - prev;
-        const elecAmount = units * rate;
-        const total = rent + elecAmount + arrears + other;
+        const total = totalRent + totalElec + arrears + other;
 
         const newBill = {
             ...formData,
-            units,
-            elecAmount,
+            rooms: calculatedRooms,
+            totalRent,
+            totalElec,
+            totalUnits,
             total,
             generatedAt: new Date().toLocaleString()
         };
@@ -85,13 +153,9 @@ export default function QuickCalc() {
         if (!formData.name) return;
         const newProfile = {
             name: formData.name,
-            floor: formData.floor,
-            roomType: formData.roomType,
-            rent: formData.rent,
-            ratePerUnit: formData.ratePerUnit
+            rooms: rooms.map(r => ({ ...r, id: Date.now() + Math.random() }))
         };
 
-        // Remove existing profile with same name if any
         const updatedProfiles = profiles.filter(p => p.name !== formData.name);
         updatedProfiles.push(newProfile);
 
@@ -106,12 +170,20 @@ export default function QuickCalc() {
         if (profile) {
             setFormData({
                 ...formData,
-                name: profile.name,
-                floor: profile.floor,
-                roomType: profile.roomType,
-                rent: profile.rent,
-                ratePerUnit: profile.ratePerUnit
+                name: profile.name
             });
+            if (profile.rooms) {
+                setRooms(profile.rooms.map(r => ({ ...r, id: Date.now() + Math.random() })));
+            } else {
+                setRooms([{
+                    ...defaultRoom,
+                    id: Date.now(),
+                    floor: profile.floor || '',
+                    roomType: profile.roomType || 'Medium',
+                    rent: profile.rent || '',
+                    ratePerUnit: profile.ratePerUnit || 17
+                }]);
+            }
         } else {
             setFormData({ ...formData, name: selectedName });
         }
@@ -165,7 +237,7 @@ export default function QuickCalc() {
         window.print();
     };
 
-    const handleDownloadImage = async () => {
+    const handleDownloadPDF = async () => {
         if (receiptRef.current) {
             try {
                 const canvas = await html2canvas(receiptRef.current, {
@@ -175,13 +247,16 @@ export default function QuickCalc() {
                     useCORS: true
                 });
 
-                const link = document.createElement('a');
-                link.download = `Bill_${result.name || 'Tenant'}_${result.billMonth}.png`;
-                link.href = canvas.toDataURL('image/png');
-                link.click();
+                const imgData = canvas.toDataURL('image/png');
+                const pdf = new jsPDF('p', 'mm', 'a4');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+                pdf.save(`Bill_${result.name || 'Tenant'}_${result.billMonth}.pdf`);
             } catch (err) {
-                console.error("Failed to generate image", err);
-                alert("Failed to download image. Please try again.");
+                console.error("Failed to generate PDF", err);
+                alert("Failed to download PDF. Please try again.");
             }
         }
     };
@@ -189,17 +264,12 @@ export default function QuickCalc() {
     const reset = () => {
         setFormData({
             name: '',
-            floor: '',
-            roomType: 'Medium',
             billMonth: currentDate.toLocaleString('default', { month: 'long' }),
             billYear: currentDate.getFullYear(),
-            rent: '',
-            prevReading: '',
-            currReading: '',
-            ratePerUnit: 17,
             arrears: '',
             otherCharges: ''
         });
+        setRooms([{ ...defaultRoom, id: Date.now() }]);
         setResult(null);
         setError('');
     };
@@ -298,105 +368,157 @@ export default function QuickCalc() {
                                             {profiles.map((p, i) => <option key={i} value={p.name} />)}
                                         </datalist>
                                     </div>
-                                    <div className="grid-2">
-                                        <div className="form-group">
-                                            <label className="input-label">
-                                                <Layers size={12} /> Floor
-                                            </label>
-                                            <input
-                                                className="form-input"
-                                                value={formData.floor}
-                                                onChange={e => setFormData({ ...formData, floor: e.target.value })}
-                                                placeholder="e.g. 1"
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label className="input-label">
-                                                <Home size={12} /> Room Type
-                                            </label>
-                                            <select
-                                                className="form-input"
-                                                value={formData.roomType}
-                                                onChange={e => setFormData({ ...formData, roomType: e.target.value })}
-                                            >
-                                                <option value="Small">Small</option>
-                                                <option value="Medium">Medium</option>
-                                                <option value="Big(Window)">Big (window)</option>
-                                                <option value="Shop">Shop</option>
-                                            </select>
-                                        </div>
-                                    </div>
                                 </div>
 
-                                {/* Section: Readings */}
-                                <div className="form-section">
-                                    <div className="flex items-center justify-between mb-2">
-                                        <div className="flex items-center gap-2">
-                                            <div className="icon-badge warning">
-                                                <Zap size={14} />
-                                            </div>
-                                            <span className="text-sm font-bold text-primary">Electricity Readings</span>
-                                        </div>
-                                        {((parseFloat(formData.currReading) || 0) - (parseFloat(formData.prevReading) || 0) > 0) && (
-                                            <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
-                                                Units: {((parseFloat(formData.currReading) || 0) - (parseFloat(formData.prevReading) || 0)).toFixed(2)}
-                                            </span>
+                                {/* Section: Rooms Loop */}
+                                {rooms.map((room, index) => (
+                                    <div key={room.id} className="form-section relative border-l-2 border-blue-500 pl-4 mb-6">
+                                        {rooms.length > 1 && (
+                                            <button
+                                                type="button"
+                                                onClick={() => setRooms(rooms.filter(r => r.id !== room.id))}
+                                                className="absolute top-2 right-2 p-2 text-slate-500 hover:bg-slate-800 rounded-lg hover:text-red-400"
+                                                title="Remove Room"
+                                            >
+                                                <Trash2 size={16} />
+                                            </button>
                                         )}
-                                    </div>
-                                    <div className="grid-2 relative" style={{ gap: '2.5rem' }}>
-                                        <div className="form-group">
-                                            <label className="input-label">Previous</label>
-                                            <input
-                                                type="number"
-                                                className="form-input font-mono"
-                                                value={formData.prevReading}
-                                                onChange={e => setFormData({ ...formData, prevReading: e.target.value })}
-                                                placeholder="0000"
-                                                required
-                                            />
+                                        <h3 className="text-sm font-bold text-slate-300 mb-4 flex items-center gap-2">
+                                            <Home size={14} /> Room {index + 1}
+                                        </h3>
+                                        <div className="grid-2 mb-4">
+                                            <div className="form-group">
+                                                <label className="input-label">
+                                                    <Layers size={12} /> Floor
+                                                </label>
+                                                <input
+                                                    className="form-input"
+                                                    value={room.floor}
+                                                    onChange={e => {
+                                                        const newRooms = [...rooms];
+                                                        newRooms[index].floor = e.target.value;
+                                                        setRooms(newRooms);
+                                                    }}
+                                                    placeholder="e.g. 1"
+                                                />
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="input-label">
+                                                    <Home size={12} /> Room Type
+                                                </label>
+                                                <select
+                                                    className="form-input"
+                                                    value={room.roomType}
+                                                    onChange={e => {
+                                                        const newRooms = [...rooms];
+                                                        newRooms[index].roomType = e.target.value;
+                                                        setRooms(newRooms);
+                                                    }}
+                                                >
+                                                    <option value="Small">Small</option>
+                                                    <option value="Medium">Medium</option>
+                                                    <option value="Big(Window)">Big (window)</option>
+                                                    <option value="Shop">Shop</option>
+                                                </select>
+                                            </div>
                                         </div>
 
-                                        <div className="arrow-icon">
-                                            <ArrowRight size={16} />
-                                        </div>
-
-                                        <div className="form-group">
-                                            <label className="input-label">Current</label>
-                                            <input
-                                                type="number"
-                                                className="form-input font-mono"
-                                                value={formData.currReading}
-                                                onChange={e => setFormData({ ...formData, currReading: e.target.value })}
-                                                placeholder="0000"
-                                                required
-                                            />
-                                        </div>
-                                    </div>
-
-                                    <div className="flex items-center gap-4">
-                                        <div className="form-group" style={{ flex: 1 }}>
-                                            <label className="input-label">Rate (₹/unit)</label>
-                                            <div className="input-wrapper">
+                                        <div className="grid-2 mb-4">
+                                            <div className="form-group">
+                                                <label className="input-label">Rent (₹)</label>
                                                 <input
                                                     type="number"
-                                                    className="form-input pl-8"
-                                                    value={formData.ratePerUnit}
-                                                    onChange={e => setFormData({ ...formData, ratePerUnit: e.target.value })}
+                                                    className="form-input"
+                                                    value={room.rent}
+                                                    onChange={e => {
+                                                        const newRooms = [...rooms];
+                                                        newRooms[index].rent = e.target.value;
+                                                        setRooms(newRooms);
+                                                    }}
+                                                    placeholder="5000"
+                                                    required
                                                 />
-                                                <span className="currency-symbol">₹</span>
+                                            </div>
+                                            <div className="form-group">
+                                                <label className="input-label flex justify-between">
+                                                    <span>Rate (₹/unit)</span>
+                                                </label>
+                                                <div className="input-wrapper">
+                                                    <input
+                                                        type="number"
+                                                        className="form-input pl-8"
+                                                        value={room.ratePerUnit}
+                                                        onChange={e => {
+                                                            const newRooms = [...rooms];
+                                                            newRooms[index].ratePerUnit = e.target.value;
+                                                            setRooms(newRooms);
+                                                        }}
+                                                    />
+                                                    <span className="currency-symbol">₹</span>
+                                                </div>
                                             </div>
                                         </div>
-                                        <div className="text-hint" style={{ flex: 2 }}>
-                                            *Standard rate is ₹17. Edit if custom rate applies.
+
+                                        <div className="flex items-center justify-between mt-6 mb-2">
+                                            <div className="flex items-center gap-2">
+                                                <div className="icon-badge warning"><Zap size={14} /></div>
+                                                <span className="text-sm font-bold text-primary">Electricity Readings</span>
+                                            </div>
+                                            {((parseFloat(room.currReading) || 0) - (parseFloat(room.prevReading) || 0) > 0) && (
+                                                <span style={{ fontSize: '0.75rem', padding: '2px 8px', borderRadius: '4px', backgroundColor: 'rgba(34, 197, 94, 0.1)', color: '#22c55e', border: '1px solid rgba(34, 197, 94, 0.2)' }}>
+                                                    Units: {((parseFloat(room.currReading) || 0) - (parseFloat(room.prevReading) || 0)).toFixed(2)}
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="grid-2 relative" style={{ gap: '2.5rem' }}>
+                                            <div className="form-group">
+                                                <label className="input-label">Previous</label>
+                                                <input
+                                                    type="number"
+                                                    className="form-input font-mono"
+                                                    value={room.prevReading}
+                                                    onChange={e => {
+                                                        const newRooms = [...rooms];
+                                                        newRooms[index].prevReading = e.target.value;
+                                                        setRooms(newRooms);
+                                                    }}
+                                                    placeholder="0000"
+                                                    required
+                                                />
+                                            </div>
+                                            <div className="arrow-icon"><ArrowRight size={16} /></div>
+                                            <div className="form-group">
+                                                <label className="input-label">Current</label>
+                                                <input
+                                                    type="number"
+                                                    className="form-input font-mono"
+                                                    value={room.currReading}
+                                                    onChange={e => {
+                                                        const newRooms = [...rooms];
+                                                        newRooms[index].currReading = e.target.value;
+                                                        setRooms(newRooms);
+                                                    }}
+                                                    placeholder="0000"
+                                                    required
+                                                />
+                                            </div>
                                         </div>
                                     </div>
-                                </div>
+                                ))}
 
-                                {/* Section: Financials */}
+                                <button
+                                    type="button"
+                                    onClick={() => setRooms([...rooms, { ...defaultRoom, id: Date.now() }])}
+                                    className="w-full py-3 border border-dashed border-slate-600 text-slate-400 rounded-lg hover:border-blue-500 hover:text-blue-400 transition-colors flex items-center justify-center gap-2 mb-8"
+                                >
+                                    <Home size={16} /> Add Another Room
+                                </button>
+
+                                {/* Section: Global Financials */}
                                 <div className="form-section">
-                                    <div className="grid-1 mb-4">
+                                    <div className="grid-2">
                                         <div className="form-group">
-                                            <label className="input-label text-danger">Previous Month Remaining Balance (₹)</label>
+                                            <label className="input-label text-danger">Old Pending Balance (₹)</label>
                                             <input
                                                 type="number"
                                                 className="form-input border-danger-soft"
@@ -405,21 +527,8 @@ export default function QuickCalc() {
                                                 placeholder="0"
                                             />
                                         </div>
-                                    </div>
-                                    <div className="grid-2">
                                         <div className="form-group">
-                                            <label className="input-label">Rent (₹)</label>
-                                            <input
-                                                type="number"
-                                                className="form-input"
-                                                value={formData.rent}
-                                                onChange={e => setFormData({ ...formData, rent: e.target.value })}
-                                                placeholder="5000"
-                                                required
-                                            />
-                                        </div>
-                                        <div className="form-group">
-                                            <label className="input-label">Other (₹)</label>
+                                            <label className="input-label">Global Other Charges (₹)</label>
                                             <input
                                                 type="number"
                                                 className="form-input"
@@ -460,11 +569,27 @@ export default function QuickCalc() {
                             </div>
 
                             <div className="card-body bg-pattern w-full flex flex-col items-center p-8">
+                                {/* Language Toggle */}
+                                <div className="mb-6 flex bg-slate-100 p-1 rounded-lg">
+                                    <button
+                                        className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${language === 'en' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                        onClick={() => setLanguage('en')}
+                                    >
+                                        English
+                                    </button>
+                                    <button
+                                        className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${language === 'hi' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                        onClick={() => setLanguage('hi')}
+                                    >
+                                        हिंदी (Hindi)
+                                    </button>
+                                </div>
+
                                 <div className="receipt-container w-full" style={{ maxWidth: '600px' }}>
                                     {/* Detailed Receipt Visual */}
                                     <div ref={receiptRef} className="receipt-paper" style={{ padding: '40px' }}>
                                         <div className="text-center mb-8">
-                                            <div className="text-3xl font-bold uppercase tracking-wider text-slate-800">RENT RECEIPT</div>
+                                            <div className="text-3xl font-bold uppercase tracking-wider text-slate-800">{translations[language].receiptTitle}</div>
                                             <div className="text-base font-medium text-slate-500 mt-2">{result.billMonth} {result.billYear}</div>
                                             <div style={{ borderBottom: '2px solid #cbd5e1', margin: '20px auto', width: '100%' }}></div>
                                         </div>
@@ -472,77 +597,87 @@ export default function QuickCalc() {
                                         {/* Tenant Details Row */}
                                         <div className="flex justify-between items-start mb-8 p-4 bg-slate-50 rounded-lg border border-slate-100">
                                             <div>
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">TENANT</div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{translations[language].tenant}</div>
                                                 <div className="text-2xl font-bold text-slate-900 leading-tight">{result.name || 'Unknown Tenant'}</div>
                                             </div>
                                             <div className="text-right">
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">DETAILS</div>
-                                                <div className="text-sm font-medium text-slate-600">{result.roomType}</div>
-                                                <div className="text-sm font-medium text-slate-900">{formatFloor(result.floor)}</div>
+                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{translations[language].rooms}</div>
+                                                <div className="text-sm font-bold text-slate-900">{result.rooms ? result.rooms.length : 1} {translations[language].total}</div>
                                             </div>
                                         </div>
 
-                                        {/* Electricity Breakdown Box */}
-                                        <div className="mb-8 p-4 border border-slate-200 rounded-lg">
-                                            <div className="text-sm font-bold text-slate-700 uppercase mb-3 flex items-center gap-2">
-                                                <Zap size={14} className="text-yellow-500" /> Electricity Charges
+                                        {/* Rooms List */}
+                                        {(result.rooms || [result]).map((room, idx) => (
+                                            <div key={idx} className="mb-6 border border-slate-200 rounded-lg overflow-hidden bg-white">
+                                                <div className="flex justify-between items-center py-2 px-4 bg-slate-50 border-b border-slate-200">
+                                                    <div className="font-bold text-slate-800 flex items-center gap-2">
+                                                        <Home size={14} className="text-blue-500" /> {room.roomType || 'Room'} <span className="text-xs text-slate-500 font-normal">({formatFloor(room.floor)})</span>
+                                                    </div>
+                                                    <div className="font-mono font-bold text-slate-800 text-sm">Rent: ₹{parseFloat(room.rent || 0).toFixed(2)}</div>
+                                                </div>
+                                                <div className="p-4 pt-2">
+                                                    <table style={{ width: '100%' }}>
+                                                        <thead>
+                                                            <tr className="text-[10px] text-slate-400 text-left border-b border-slate-50">
+                                                                <th className="pb-1 font-bold">{translations[language].readings}</th>
+                                                                <th className="pb-1 font-bold text-center">{translations[language].units}</th>
+                                                                <th className="pb-1 font-bold text-right">{translations[language].rate}</th>
+                                                                <th className="pb-1 font-bold text-right text-slate-700">{translations[language].elec}</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <tr>
+                                                                <td className="py-2">
+                                                                    <div className="text-xs text-slate-600">{translations[language].cur}: <span className="font-mono font-bold text-slate-800">{room.currReading}</span></div>
+                                                                    <div className="text-xs text-slate-600">{translations[language].pre}: <span className="font-mono font-bold text-slate-800">{room.prevReading}</span></div>
+                                                                </td>
+                                                                <td className="py-2 text-center align-middle">
+                                                                    <span className="font-mono font-bold text-slate-800">{parseFloat(room.units || 0).toFixed(2)}</span>
+                                                                </td>
+                                                                <td className="py-2 text-right align-middle">
+                                                                    <span className="font-mono text-slate-600 text-xs">₹{room.ratePerUnit}</span>
+                                                                </td>
+                                                                <td className="py-2 text-right align-middle">
+                                                                    <span className="font-mono font-bold text-slate-900">₹{parseFloat(room.elecAmount || 0).toFixed(2)}</span>
+                                                                </td>
+                                                            </tr>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
                                             </div>
-                                            <table style={{ width: '100%' }}>
-                                                <thead>
-                                                    <tr className="text-xs text-slate-400 text-left border-b border-slate-100">
-                                                        <th className="pb-2 font-medium">READINGS</th>
-                                                        <th className="pb-2 font-medium text-center">UNITS</th>
-                                                        <th className="pb-2 font-medium text-right">RATE</th>
-                                                        <th className="pb-2 font-medium text-right">TOTAL</th>
-                                                    </tr>
-                                                </thead>
-                                                <tbody>
-                                                    <tr>
-                                                        <td className="py-3">
-                                                            <div className="text-sm text-slate-600">Current: <span className="font-mono font-bold text-slate-800">{result.currReading}</span></div>
-                                                            <div className="text-sm text-slate-600">Previous: <span className="font-mono font-bold text-slate-800">{result.prevReading}</span></div>
-                                                        </td>
-                                                        <td className="py-3 text-center align-top">
-                                                            <span className="font-mono font-bold text-slate-800 text-lg">{result.units.toFixed(2)}</span>
-                                                        </td>
-                                                        <td className="py-3 text-right align-top">
-                                                            <span className="font-mono text-slate-600">₹{result.ratePerUnit}</span>
-                                                        </td>
-                                                        <td className="py-3 text-right align-top">
-                                                            <span className="font-mono font-bold text-slate-900 text-lg">₹{result.elecAmount.toFixed(2)}</span>
-                                                        </td>
-                                                    </tr>
-                                                </tbody>
-                                            </table>
-                                        </div>
+                                        ))}
 
                                         {/* Main Charges Summary */}
-                                        <div className="space-y-3 mb-8">
+                                        <div className="space-y-3 mb-8 bg-slate-50 p-4 rounded-lg">
                                             <div className="flex justify-between items-center text-sm">
-                                                <span className="text-slate-600 font-medium text-lg">Room Rent</span>
-                                                <span className="font-mono font-bold text-slate-800 text-lg">₹{parseFloat(result.rent).toFixed(2)}</span>
+                                                <span className="text-slate-600 font-medium text-base">{translations[language].totalRent}</span>
+                                                <span className="font-mono font-bold text-slate-800 text-base">₹{(result.totalRent !== undefined ? result.totalRent : parseFloat(result.rent)).toFixed(2)}</span>
+                                            </div>
+                                            <div className="flex justify-between items-center text-sm">
+                                                <span className="text-slate-600 font-medium text-base">{translations[language].totalElectricity}</span>
+                                                <span className="font-mono font-bold text-slate-800 text-base">₹{(result.totalElec !== undefined ? result.totalElec : parseFloat(result.elecAmount)).toFixed(2)}</span>
                                             </div>
 
                                             {result.otherCharges > 0 && (
                                                 <div className="flex justify-between items-center text-sm">
-                                                    <span className="text-slate-600 font-medium text-lg">Other Charges</span>
-                                                    <span className="font-mono font-bold text-slate-800 text-lg">₹{parseFloat(result.otherCharges).toFixed(2)}</span>
+                                                    <span className="text-slate-600 font-medium text-base">{translations[language].otherCharges}</span>
+                                                    <span className="font-mono font-bold text-slate-800 text-base">₹{parseFloat(result.otherCharges).toFixed(2)}</span>
                                                 </div>
                                             )}
 
-                                            <div style={{ borderBottom: '2px solid #0f172a', margin: '15px 0' }}></div>
+                                            <div style={{ borderBottom: '2px dashed #cbd5e1', margin: '15px 0' }}></div>
 
                                             <div className="flex justify-between items-center">
-                                                <span className="text-lg font-bold text-slate-900">CURRENT MONTH TOTAL</span>
-                                                <span className="text-xl font-bold text-slate-900">₹{(parseFloat(result.rent) + result.elecAmount + parseFloat(result.otherCharges || 0)).toFixed(2)}</span>
+                                                <span className="text-lg font-bold text-slate-900">{translations[language].currentMonth}</span>
+                                                <span className="text-xl font-bold text-slate-900">
+                                                    ₹{((result.totalRent !== undefined ? result.totalRent : parseFloat(result.rent)) + (result.totalElec !== undefined ? result.totalElec : result.elecAmount) + parseFloat(result.otherCharges || 0)).toFixed(2)}
+                                                </span>
                                             </div>
 
                                             {result.arrears > 0 && (
-                                                <div className="mt-6 pt-4 border-t-2 border-dashed border-red-200 bg-red-50 p-4 rounded-lg">
-                                                    <div className="flex justify-between items-center text-red-600">
-                                                        <span className="text-base font-bold">Old Pending Balance</span>
-                                                        <span className="font-mono font-bold text-xl">₹{parseFloat(result.arrears).toFixed(2)}</span>
-                                                    </div>
+                                                <div className="flex justify-between items-center text-sm">
+                                                    <span className="text-slate-600 font-medium text-base">{translations[language].oldPendingBalance}</span>
+                                                    <span className="font-mono font-bold text-slate-800 text-base">₹{parseFloat(result.arrears).toFixed(2)}</span>
                                                 </div>
                                             )}
                                         </div>
@@ -550,15 +685,15 @@ export default function QuickCalc() {
                                         {/* Grand Total Footer */}
                                         <div style={{ backgroundColor: '#0f172a', color: 'white', padding: '2rem', borderRadius: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-bold uppercase tracking-widest text-slate-400">TOTAL PAYABLE AMOUNT</span>
-                                                <span className="text-xs text-slate-500 mt-1">Please pay by due date</span>
+                                                <span className="text-sm font-bold uppercase tracking-widest text-slate-400">{translations[language].totalPayable}</span>
+                                                <span className="text-xs text-slate-500 mt-1">{translations[language].payByDueDate}</span>
                                             </div>
                                             <span className="text-5xl font-bold">₹{result.total.toFixed(2)}</span>
                                         </div>
 
                                         <div className="mt-8 text-center text-slate-400 text-xs">
-                                            <p>Thank you for your timely payment.</p>
-                                            <p className="mt-1">Generated electronically on {result.generatedAt}</p>
+                                            <p>{translations[language].thankYou}</p>
+                                            <p className="mt-1">{translations[language].generatedOn} {result.generatedAt}</p>
                                         </div>
                                     </div>
 
@@ -566,8 +701,8 @@ export default function QuickCalc() {
                                         <button onClick={handleShareWhatsapp} className="btn bg-green-500 hover:bg-green-600 text-white shadow-lg justify-center py-4 text-lg font-bold rounded-xl transition-transform hover:scale-[1.02] flex items-center">
                                             <Share2 size={24} className="mr-3" /> WhatsApp
                                         </button>
-                                        <button onClick={handleDownloadImage} className="btn bg-blue-600 hover:bg-blue-500 text-white shadow-lg justify-center py-4 text-lg font-bold rounded-xl transition-transform hover:scale-[1.02] flex items-center">
-                                            <Download size={24} className="mr-3" /> Download
+                                        <button onClick={handleDownloadPDF} className="btn bg-blue-600 hover:bg-blue-500 text-white shadow-lg justify-center py-4 text-lg font-bold rounded-xl transition-transform hover:scale-[1.02] flex items-center">
+                                            <Download size={24} className="mr-3" /> Download PDF
                                         </button>
                                     </div>
                                 </div>
@@ -635,11 +770,11 @@ export default function QuickCalc() {
                                             <div className="grid grid-cols-2 gap-2 mt-3 pt-3 border-t border-slate-700/50 text-xs text-slate-400">
                                                 <div className="flex items-center gap-1.5">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-blue-500"></div>
-                                                    Rent: <span className="text-slate-200">₹{item.rent}</span>
+                                                    Rent: <span className="text-slate-200">₹{item.totalRent !== undefined ? item.totalRent : item.rent}</span>
                                                 </div>
                                                 <div className="flex items-center gap-1.5">
                                                     <div className="w-1.5 h-1.5 rounded-full bg-yellow-500"></div>
-                                                    Elec: <span className="text-slate-200">₹{item.elecAmount.toFixed(0)}</span>
+                                                    Elec: <span className="text-slate-200">₹{(item.totalElec !== undefined ? item.totalElec : item.elecAmount).toFixed(0)}</span>
                                                 </div>
                                             </div>
                                         </div>
