@@ -514,9 +514,12 @@ export default function QuickCalc() {
                                 <button
                                     type="button"
                                     onClick={() => setRooms([...rooms, { ...defaultRoom, id: Date.now() }])}
-                                    className="w-full py-3 border border-dashed border-slate-600 text-slate-400 rounded-lg hover:border-blue-500 hover:text-blue-400 transition-colors flex items-center justify-center gap-2 mb-8"
+                                    className="w-full py-4 bg-slate-800/20 border-2 border-dashed border-slate-600/50 text-slate-400 rounded-xl hover:border-blue-500/50 hover:bg-slate-800/40 hover:text-blue-400 transition-all flex flex-col items-center justify-center gap-2 mb-8"
                                 >
-                                    <Home size={16} /> Add Another Room
+                                    <div className="p-2 bg-slate-800 rounded-full text-slate-300">
+                                        <Home size={18} />
+                                    </div>
+                                    <span className="font-medium text-sm">Add Another Room</span>
                                 </button>
 
                                 {/* Section: Global Financials */}
@@ -600,12 +603,12 @@ export default function QuickCalc() {
                                         </div>
 
                                         {/* Tenant Details Row */}
-                                        <div className="flex justify-between items-start mb-8 p-4 bg-slate-50 rounded-lg border border-slate-100">
+                                        <div className="flex flex-col sm:flex-row justify-between items-start gap-4 mb-8 p-4 bg-slate-50 rounded-lg border border-slate-100">
                                             <div>
                                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{translations[language].tenant}</div>
-                                                <div className="text-2xl font-bold text-slate-900 leading-tight">{result.name || 'Unknown Tenant'}</div>
+                                                <div className="text-2xl font-bold text-slate-900 leading-tight break-words max-w-full">{result.name || 'Unknown Tenant'}</div>
                                             </div>
-                                            <div className="text-right">
+                                            <div className="text-left sm:text-right">
                                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{translations[language].rooms}</div>
                                                 <div className="text-sm font-bold text-slate-900">{result.rooms ? result.rooms.length : 1} {translations[language].total}</div>
                                             </div>
@@ -620,34 +623,27 @@ export default function QuickCalc() {
                                                     </div>
                                                     <div className="font-mono font-bold text-slate-800 text-sm">Rent: ₹{parseFloat(room.rent || 0).toFixed(2)}</div>
                                                 </div>
-                                                <div className="p-4 pt-2">
-                                                    <table style={{ width: '100%' }}>
-                                                        <thead>
-                                                            <tr className="text-[10px] text-slate-400 text-left border-b border-slate-50">
-                                                                <th className="pb-1 font-bold">{translations[language].readings}</th>
-                                                                <th className="pb-1 font-bold text-center">{translations[language].units}</th>
-                                                                <th className="pb-1 font-bold text-right">{translations[language].rate}</th>
-                                                                <th className="pb-1 font-bold text-right text-slate-700">{translations[language].elec}</th>
-                                                            </tr>
-                                                        </thead>
-                                                        <tbody>
-                                                            <tr>
-                                                                <td className="py-2">
-                                                                    <div className="text-xs text-slate-600">{translations[language].cur}: <span className="font-mono font-bold text-slate-800">{room.currReading}</span></div>
-                                                                    <div className="text-xs text-slate-600">{translations[language].pre}: <span className="font-mono font-bold text-slate-800">{room.prevReading}</span></div>
-                                                                </td>
-                                                                <td className="py-2 text-center align-middle">
-                                                                    <span className="font-mono font-bold text-slate-800">{parseFloat(room.units || 0).toFixed(2)}</span>
-                                                                </td>
-                                                                <td className="py-2 text-right align-middle">
-                                                                    <span className="font-mono text-slate-600 text-xs">₹{room.ratePerUnit}</span>
-                                                                </td>
-                                                                <td className="py-2 text-right align-middle">
-                                                                    <span className="font-mono font-bold text-slate-900">₹{parseFloat(room.elecAmount || 0).toFixed(2)}</span>
-                                                                </td>
-                                                            </tr>
-                                                        </tbody>
-                                                    </table>
+                                                <div className="p-4 pt-3">
+                                                    {/* Mobile-Friendly Grid for Readings */}
+                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mt-1">
+                                                        <div>
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{translations[language].readings}</div>
+                                                            <div className="text-xs text-slate-600 mb-1">{translations[language].cur}: <span className="font-mono font-bold text-slate-800">{room.currReading}</span></div>
+                                                            <div className="text-xs text-slate-600">{translations[language].pre}: <span className="font-mono font-bold text-slate-800">{room.prevReading}</span></div>
+                                                        </div>
+                                                        <div className="sm:text-center">
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{translations[language].units}</div>
+                                                            <div className="font-mono font-bold text-slate-800 mt-3">{parseFloat(room.units || 0).toFixed(2)}</div>
+                                                        </div>
+                                                        <div className="sm:text-right">
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{translations[language].rate}</div>
+                                                            <div className="font-mono text-slate-600 text-xs mt-3">₹{room.ratePerUnit}</div>
+                                                        </div>
+                                                        <div className="text-right">
+                                                            <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-2">{translations[language].elec}</div>
+                                                            <div className="font-mono font-bold text-slate-900 mt-3 text-base">₹{parseFloat(room.elecAmount || 0).toFixed(2)}</div>
+                                                        </div>
+                                                    </div>
                                                 </div>
                                             </div>
                                         ))}
@@ -688,12 +684,12 @@ export default function QuickCalc() {
                                         </div>
 
                                         {/* Grand Total Footer */}
-                                        <div style={{ backgroundColor: '#0f172a', color: 'white', padding: '2rem', borderRadius: '0.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 text-white p-6 sm:p-8 rounded-xl">
                                             <div className="flex flex-col">
-                                                <span className="text-sm font-bold uppercase tracking-widest text-slate-400">{translations[language].totalPayable}</span>
-                                                <span className="text-xs text-slate-500 mt-1">{translations[language].payByDueDate}</span>
+                                                <span className="text-sm font-bold uppercase tracking-widest text-slate-400 leading-tight">{translations[language].totalPayable}</span>
+                                                <span className="text-xs text-slate-500 mt-2">{translations[language].payByDueDate}</span>
                                             </div>
-                                            <span className="text-5xl font-bold">₹{result.total.toFixed(2)}</span>
+                                            <span className="text-4xl sm:text-5xl font-bold font-mono">₹{result.total.toFixed(2)}</span>
                                         </div>
 
                                         <div className="mt-8 text-center text-slate-400 text-xs">
