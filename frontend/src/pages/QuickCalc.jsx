@@ -9,7 +9,7 @@ const translations = {
         tenant: "TENANT",
         rooms: "ROOMS",
         total: "Total",
-        rent: "Rent",
+        rent: "RENT",
         readings: "READINGS",
         units: "UNITS",
         rate: "RATE",
@@ -30,7 +30,7 @@ const translations = {
         receiptTitle: "किराया रसीद",
         tenant: "किरायेदार",
         rooms: "कमरे",
-        total: "कुल",
+        total: "टोटल",
         rent: "किराया",
         readings: "रीडिंग",
         units: "यूनिट",
@@ -38,12 +38,12 @@ const translations = {
         elec: "बिजली",
         cur: "वर्तमान",
         pre: "पिछला",
-        totalRent: "कुल किराया",
-        totalElectricity: "कुल बिजली बिल",
+        totalRent: "टोटल किराया",
+        totalElectricity: "टोटल बिजली बिल",
         otherCharges: "अन्य शुल्क",
-        currentMonth: "इस महीने का कुल",
+        currentMonth: "इस महीने का टोटल",
         oldPendingBalance: "पिछला बकाया",
-        totalPayable: "कुल देय राशि",
+        totalPayable: "टोटल किराया देना है",
         payByDueDate: "कृपया नियत तिथि तक भुगतान करें",
         thankYou: "समय पर भुगतान के लिए धन्यवाद।",
         generatedOn: "इलेक्ट्रॉनिक रूप से तैयार:"
@@ -68,11 +68,27 @@ export default function QuickCalc() {
     const [animate, setAnimate] = useState(false);
     const receiptRef = useRef(null);
 
+    // Prevent up/down arrows from changing number inputs
+    const blockNativeNumberScroll = (e) => {
+        if (['ArrowUp', 'ArrowDown'].includes(e.key)) {
+            e.preventDefault();
+        }
+    };
+
     // New State for History & Profiles
     const [history, setHistory] = useState([]);
     const [profiles, setProfiles] = useState([]);
     const [showHistory, setShowHistory] = useState(false);
     const [language, setLanguage] = useState('en');
+    const [theme, setTheme] = useState('darkBlue');
+
+    const themeOptions = {
+        darkBlue: { bg: '#0f172a', text: 'white', icon: '#3b82f6', hex: '#0f172a' },
+        black: { bg: '#171717', text: 'white', icon: '#404040', hex: '#171717' },
+        indigo: { bg: '#4338ca', text: 'white', icon: '#6366f1', hex: '#4338ca' },
+        emerald: { bg: '#065f46', text: 'white', icon: '#10b981', hex: '#065f46' }
+    };
+    const currentTheme = themeOptions[theme] || themeOptions.darkBlue;
 
     useEffect(() => {
         setAnimate(true);
@@ -433,6 +449,8 @@ export default function QuickCalc() {
                                                 <label className="input-label">Rent (₹)</label>
                                                 <input
                                                     type="number"
+                                                    onKeyDown={blockNativeNumberScroll}
+                                                    onWheel={(e) => e.target.blur()}
                                                     className="form-input"
                                                     value={room.rent}
                                                     onChange={e => {
@@ -451,6 +469,8 @@ export default function QuickCalc() {
                                                 <div className="input-wrapper">
                                                     <input
                                                         type="number"
+                                                        onKeyDown={blockNativeNumberScroll}
+                                                        onWheel={(e) => e.target.blur()}
                                                         className="form-input pl-8"
                                                         value={room.ratePerUnit}
                                                         onChange={e => {
@@ -480,6 +500,8 @@ export default function QuickCalc() {
                                                 <label className="input-label">Previous</label>
                                                 <input
                                                     type="number"
+                                                    onKeyDown={blockNativeNumberScroll}
+                                                    onWheel={(e) => e.target.blur()}
                                                     className="form-input font-mono"
                                                     value={room.prevReading}
                                                     onChange={e => {
@@ -496,6 +518,8 @@ export default function QuickCalc() {
                                                 <label className="input-label">Current</label>
                                                 <input
                                                     type="number"
+                                                    onKeyDown={blockNativeNumberScroll}
+                                                    onWheel={(e) => e.target.blur()}
                                                     className="form-input font-mono"
                                                     value={room.currReading}
                                                     onChange={e => {
@@ -514,12 +538,13 @@ export default function QuickCalc() {
                                 <button
                                     type="button"
                                     onClick={() => setRooms([...rooms, { ...defaultRoom, id: Date.now() }])}
-                                    className="w-full py-4 bg-slate-800/20 border-2 border-dashed border-slate-600/50 text-slate-400 rounded-xl hover:border-blue-500/50 hover:bg-slate-800/40 hover:text-blue-400 transition-all flex flex-col items-center justify-center gap-2 mb-8"
+                                    className="w-full py-4 border-2 border-dashed border-slate-600 text-slate-400 rounded-xl hover:border-accent hover:text-accent transition-all flex flex-col items-center justify-center gap-2 mb-8"
+                                    style={{ backgroundColor: 'rgba(15, 23, 42, 0.4)' }}
                                 >
-                                    <div className="p-2 bg-slate-800 rounded-full text-slate-300">
+                                    <div className="icon-badge p-2 mb-1" style={{ backgroundColor: 'rgba(255, 255, 255, 0.05)', borderRadius: '50%' }}>
                                         <Home size={18} />
                                     </div>
-                                    <span className="font-medium text-sm">Add Another Room</span>
+                                    <span className="font-semibold text-sm tracking-wide">Add Another Room</span>
                                 </button>
 
                                 {/* Section: Global Financials */}
@@ -529,6 +554,8 @@ export default function QuickCalc() {
                                             <label className="input-label text-danger">Old Pending Balance (₹)</label>
                                             <input
                                                 type="number"
+                                                onKeyDown={blockNativeNumberScroll}
+                                                onWheel={(e) => e.target.blur()}
                                                 className="form-input border-danger-soft"
                                                 value={formData.arrears}
                                                 onChange={e => setFormData({ ...formData, arrears: e.target.value })}
@@ -539,6 +566,8 @@ export default function QuickCalc() {
                                             <label className="input-label">Global Other Charges (₹)</label>
                                             <input
                                                 type="number"
+                                                onKeyDown={blockNativeNumberScroll}
+                                                onWheel={(e) => e.target.blur()}
                                                 className="form-input"
                                                 value={formData.otherCharges}
                                                 onChange={e => setFormData({ ...formData, otherCharges: e.target.value })}
@@ -577,20 +606,33 @@ export default function QuickCalc() {
                             </div>
 
                             <div className="card-body bg-pattern w-full flex flex-col items-center p-8">
-                                {/* Language Toggle */}
-                                <div className="mb-6 flex bg-slate-100 p-1 rounded-lg">
-                                    <button
-                                        className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${language === 'en' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                        onClick={() => setLanguage('en')}
-                                    >
-                                        English
-                                    </button>
-                                    <button
-                                        className={`px-4 py-2 rounded-md font-medium text-sm transition-all ${language === 'hi' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
-                                        onClick={() => setLanguage('hi')}
-                                    >
-                                        हिंदी (Hindi)
-                                    </button>
+                                {/* Settings Row: Language & Theme */}
+                                <div className="mb-6 flex flex-col sm:flex-row gap-4 w-full" style={{ maxWidth: '600px' }}>
+                                    <div className="flex bg-slate-100 p-1 rounded-lg flex-1">
+                                        <button
+                                            className={`flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all ${language === 'en' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                            onClick={() => setLanguage('en')}
+                                        >
+                                            English
+                                        </button>
+                                        <button
+                                            className={`flex-1 px-4 py-2 rounded-md font-medium text-sm transition-all ${language === 'hi' ? 'bg-white shadow text-blue-600' : 'text-slate-500 hover:text-slate-700'}`}
+                                            onClick={() => setLanguage('hi')}
+                                        >
+                                            हिंदी
+                                        </button>
+                                    </div>
+                                    <div className="flex bg-slate-100 p-1 rounded-lg flex-1 justify-around items-center px-4">
+                                        {Object.entries(themeOptions).map(([key, t]) => (
+                                            <button
+                                                key={key}
+                                                onClick={() => setTheme(key)}
+                                                className={`w-6 h-6 rounded-full transition-transform hover:scale-110 ${theme === key ? 'ring-2 ring-offset-2 scale-110' : ''}`}
+                                                style={{ backgroundColor: t.hex, outlineColor: t.hex }}
+                                                title={`Theme: ${key}`}
+                                            />
+                                        ))}
+                                    </div>
                                 </div>
 
                                 <div className="receipt-container w-full" style={{ maxWidth: '600px' }}>
@@ -608,10 +650,6 @@ export default function QuickCalc() {
                                                 <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{translations[language].tenant}</div>
                                                 <div className="text-2xl font-bold text-slate-900 leading-tight break-words max-w-full">{result.name || 'Unknown Tenant'}</div>
                                             </div>
-                                            <div className="text-left sm:text-right">
-                                                <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-1">{translations[language].rooms}</div>
-                                                <div className="text-sm font-bold text-slate-900">{result.rooms ? result.rooms.length : 1} {translations[language].total}</div>
-                                            </div>
                                         </div>
 
                                         {/* Rooms List */}
@@ -619,13 +657,12 @@ export default function QuickCalc() {
                                             <div key={idx} className="mb-6 border border-slate-200 rounded-lg overflow-hidden bg-white">
                                                 <div className="flex justify-between items-center py-2 px-4 bg-slate-50 border-b border-slate-200">
                                                     <div className="font-bold text-slate-800 flex items-center gap-2">
-                                                        <Home size={14} className="text-blue-500" /> {room.roomType || 'Room'} <span className="text-xs text-slate-500 font-normal">({formatFloor(room.floor)})</span>
+                                                        <Home size={14} color={currentTheme.icon} /> {room.roomType || 'Room'} <span className="text-xs text-slate-500 font-normal capitalize">({formatFloor(room.floor)})</span>
                                                     </div>
-                                                    <div className="font-mono font-bold text-slate-800 text-sm">Rent: ₹{parseFloat(room.rent || 0).toFixed(2)}</div>
                                                 </div>
                                                 <div className="p-4 pt-3">
-                                                    {/* Mobile-Friendly Grid for Readings */}
-                                                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm mt-1">
+                                                    {/* Mobile-Friendly Grid for Readings and Rent */}
+                                                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', justifyContent: 'space-between', fontSize: '0.875rem', marginTop: '0.25rem', width: '100%' }}>
                                                         <div>
                                                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{translations[language].readings}</div>
                                                             <div className="text-xs text-slate-600 mb-1">{translations[language].cur}: <span className="font-mono font-bold text-slate-800">{room.currReading}</span></div>
@@ -635,13 +672,17 @@ export default function QuickCalc() {
                                                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{translations[language].units}</div>
                                                             <div className="font-mono font-bold text-slate-800 mt-3">{parseFloat(room.units || 0).toFixed(2)}</div>
                                                         </div>
-                                                        <div className="sm:text-right">
+                                                        <div className="sm:text-center">
                                                             <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{translations[language].rate}</div>
                                                             <div className="font-mono text-slate-600 text-xs mt-3">₹{room.ratePerUnit}</div>
                                                         </div>
-                                                        <div className="text-right">
-                                                            <div className="text-[10px] font-bold text-slate-700 uppercase tracking-wider mb-2">{translations[language].elec}</div>
-                                                            <div className="font-mono font-bold text-slate-900 mt-3 text-base">₹{parseFloat(room.elecAmount || 0).toFixed(2)}</div>
+                                                        <div className="sm:text-center">
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{translations[language].elec}</div>
+                                                            <div className="font-mono font-bold text-slate-800 mt-3">₹{parseFloat(room.elecAmount || 0).toFixed(2)}</div>
+                                                        </div>
+                                                        <div className="sm:text-right">
+                                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-wider mb-2">{translations[language].rent}</div>
+                                                            <div className="font-mono font-bold text-slate-800 mt-3 text-base">₹{parseFloat(room.rent || 0).toFixed(2)}</div>
                                                         </div>
                                                     </div>
                                                 </div>
@@ -684,15 +725,17 @@ export default function QuickCalc() {
                                         </div>
 
                                         {/* Grand Total Footer */}
-                                        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 bg-slate-900 text-white p-6 sm:p-8 rounded-xl">
-                                            <div className="flex flex-col">
-                                                <span className="text-sm font-bold uppercase tracking-widest text-slate-400 leading-tight">{translations[language].totalPayable}</span>
-                                                <span className="text-xs text-slate-500 mt-2">{translations[language].payByDueDate}</span>
+                                        <div style={{ backgroundColor: currentTheme.bg, color: currentTheme.text, padding: '1.5rem', borderRadius: '0.75rem', display: 'flex', flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'center', gap: '1rem', marginTop: '1rem', transition: 'background-color 0.3s' }}>
+                                            <div style={{ display: 'flex', flexDirection: 'column' }}>
+                                                <span style={{ fontSize: '0.875rem', fontWeight: 'bold', textTransform: 'uppercase', letterSpacing: '0.05em', color: '#94a3b8' }}>{translations[language].totalPayable}</span>
+                                                <span style={{ fontSize: '0.75rem', color: '#64748b', marginTop: '4px' }}>{translations[language].payByDueDate}</span>
                                             </div>
-                                            <span className="text-4xl sm:text-5xl font-bold font-mono">₹{result.total.toFixed(2)}</span>
+                                            <div style={{ fontSize: '2.5rem', fontWeight: 'bold', letterSpacing: '-0.05em', backgroundColor: 'rgba(255,255,255,0.05)', padding: '0.5rem 1rem', borderRadius: '0.5rem', border: '1px solid rgba(255,255,255,0.1)' }}>
+                                                ₹{result.total.toFixed(2)}
+                                            </div>
                                         </div>
 
-                                        <div className="mt-8 text-center text-slate-400 text-xs">
+                                        <div className="mt-12 pt-6 text-center text-slate-400 text-xs">
                                             <p>{translations[language].thankYou}</p>
                                             <p className="mt-1">{translations[language].generatedOn} {result.generatedAt}</p>
                                         </div>
